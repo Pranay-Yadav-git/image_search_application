@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Search App</title>
+    <style>
+        body {
+            font-family: Didot;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        body.dark-mode {
+            background-color: #333;
+            color: #eee;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .search-container {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        #search-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        #search-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 5px;
+        }
+
+        .image-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.3s ease;
+        }
+
+        .image-item:hover img {
+            transform: scale(1.05);
+        }
+
+        .image-item .caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 8px;
+            font-size: 14px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .image-item:hover .caption {
+            opacity: 1;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #error-message, #loading-indicator {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #dark-mode-toggle{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Search</h1>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Search for images...">
+            <button id="search-button">Search</button>
+        </div>
+        <div id="image-grid"></div>
+        <div id="error-message" class="hidden"></div>
+        <div id="loading-indicator" class="hidden">Loading...</div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const imageGrid = document.getElementById('image-grid');
+        const errorMessage = document.getElementById('error-message');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const body = document.body;
+
+        const apiKey = 'XiUi83lvLiBficHYgppKew2lo5XOBI6mLK145l2xvlz3IaokqqeSXNH4';
+        const apiUrl = 'https://api.pexels.com/v1/search';
+        let currentPage = 1;
+        let currentSearchTerm = '';
+
+        async function fetchImages(searchTerm, page = 1) {
+            loadingIndicator.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${apiUrl}?query=${encodeURIComponent(searchTerm)}&page=${page}`, {
+                    headers: {
+                        Authorization: apiKey
+                    }
+                });
+                const data = await response.json();
+
+                loadingIndicator.classList.add('hidden');
+
+                if (data.photos.length === 0) {
+                    errorMessage.textContent = 'No results found.';
+                    errorMessage.classList.remove('hidden');
+                    return;
+                }
+
+                return data.photos;
+            } catch (error) {
+                console.error('Error fetching images:', error);
+                errorMessage.textContent = 'Failed to fetch images. Please try again.';
+                errorMessage.classList.remove('hidden');
+                loadingIndicator.classList.add('hidden');
+                return null;
+            }
+        }
+
+        function displayImages(images) {
+            images.forEach(image => {
+                const imageItem = document.createElement('div');
+                imageItem.classList.add('image-item');
+
+                const img = document.createElement('img');
+                img.src = image.src.medium;
+                img.alt = image.alt;
+
+                const caption = document.createElement('div');
+                caption.classList.add('caption');
+                caption.textContent = image.alt;
+
+                imageItem.appendChild(img);
+                imageItem.appendChild(caption);
+                imageGrid.appendChild(imageItem);
+
+                imageItem.addEventListener('click', () => {
+                  window.open(image.src.original, '_blank');
+                });
+            });
+        }
+
+        async function searchImages() {
+            currentSearchTerm = searchInput.value;
+            currentPage = 1;
+            imageGrid.innerHTML = '';
+            const images = await fetchImages(currentSearchTerm, currentPage);
+            if (images) {
+                displayImages(images);
+            }
+        }
+
+        searchButton.addEventListener('click', searchImages);
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                searchImages();
+            }
+        });
+
+        window.addEventListener('scroll', async () => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && currentSearchTerm) {
+                currentPage++;
+                const images = await fetchImages(currentSearchTerm, currentPage);
+                if (images) {
+                    displayImages(images);
+                }
+            }
+        });
+
+        const darkModeToggle = document.createElement('button');
+        darkModeToggle.id = 'dark-mode-toggle';
+        darkModeToggle.textContent = 'Switch to Dark Mode';
+        body.appendChild(darkModeToggle);
+
+        darkModeToggle.addEventListener('click', ()=>{
+            body.classList.toggle('dark-mode');
+            darkModeToggle.textContent = body.classList.contains('dark-mode') ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+        });
+    </script>
+</body>
+</html>
